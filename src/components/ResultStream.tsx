@@ -20,7 +20,9 @@ export default function ResultStream({
   const [currentStep, setCurrentStep] = useState(0);
   const [visibleSteps, setVisibleSteps] = useState<string[]>([]);
 
-  const runAnalysis = useCallback(() => {
+  useEffect(() => {
+    if (!isActive || phase !== "idle") return;
+
     setPhase("analyzing");
     setCurrentStep(0);
     setVisibleSteps([]);
@@ -33,7 +35,6 @@ export default function ResultStream({
         step++;
       } else {
         clearInterval(interval);
-        // 少し間を置いて結論表示に切り替え
         setTimeout(() => {
           setPhase("done");
           onComplete();
@@ -42,13 +43,8 @@ export default function ResultStream({
     }, 800);
 
     return () => clearInterval(interval);
-  }, [onComplete]);
-
-  useEffect(() => {
-    if (!isActive || phase !== "idle") return;
-    const cleanup = runAnalysis();
-    return cleanup;
-  }, [isActive, phase, runAnalysis]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
 
   if (phase === "idle") return null;
 
