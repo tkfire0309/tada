@@ -70,6 +70,8 @@ export interface FaqItem {
 export interface AnalysisBaseData {
   productName: string; // 検索対象商品名
   currentPriceYen: number; // 現在の販売価格
+  currentBuybackPriceYen: number; // 現行モデルの現在の買取相場
+  releaseYear: number; // 現行モデルの発売年
   annualDepreciationRate: number; // 年間減価率（0〜1）前モデル実績から算出
   previousModel: {
     modelName: string;

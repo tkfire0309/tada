@@ -76,14 +76,16 @@ export const mockAnalysisResult: AnalysisResult = {
 export const mockBaseData: AnalysisBaseData = {
   productName: "Leica M11",
   currentPriceYen: 1280000,
-  annualDepreciationRate: 0.0275, // 年間2.75%減価（M10の実績: 8年で20%減 → 年2.5%を少し上方修正）
+  currentBuybackPriceYen: 1100000, // 現行モデルの現在の買取相場
+  releaseYear: 2022,
+  annualDepreciationRate: 0.0275, // 年間2.75%減価（モック用。v0.1で要再設計）
   previousModel: {
     modelName: "Leica M10",
     releaseYear: 2017,
     releasePriceYen: 1000000,
-    currentBuybackPriceYen: 750000, // 買取価格（中古販売相場80万円からショップマージンを引いた額）
+    currentBuybackPriceYen: 750000,
     yearsElapsed: 8,
-    retentionRate: 75, // 買取ベースの価値保持率
+    retentionRate: 75,
   },
   citations: [
     { title: "カメラのキタムラ 買取価格表", url: "https://www.kitamura.jp/service/sell/" },

@@ -81,7 +81,6 @@ export default function ResultStream({
 
   const prev = data.previousModel;
   const prevActualCost = prev.releasePriceYen - prev.currentBuybackPriceYen;
-  const prevAnnualCost = Math.round(prevActualCost / prev.yearsElapsed);
 
   // === 分析中の表示 ===
   if (phase === "analyzing") {
@@ -214,71 +213,84 @@ export default function ResultStream({
         </div>
       </div>
 
-      {/* 根拠カード */}
-      <div className="bg-card-bg border border-border rounded-2xl p-5 shadow-sm">
-        <p className="text-xs font-medium text-muted mb-3">
-          根拠：前世代モデルの買取実績
-        </p>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold">{prev.modelName}</span>
-          <span className="text-xs text-muted">{prev.releaseYear}年発売</span>
-        </div>
+      {/* 根拠カード群 */}
+      <div className="space-y-3">
+        <p className="text-xs font-medium text-muted px-1">根拠</p>
 
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
-            <div
-              className="h-full bg-accent rounded-full transition-all duration-1000"
-              style={{ width: `${prev.retentionRate}%` }}
-            />
+        {/* カード1: 現行モデルの市場価格 */}
+        <div className="bg-card-bg border border-border rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold">{data.productName}</span>
+            <span className="text-[10px] text-muted bg-background px-2 py-0.5 rounded-md">
+              現行モデル
+            </span>
           </div>
-          <span className="text-xs font-medium text-accent">
-            {prev.retentionRate}%保持
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="bg-background rounded-lg p-2.5">
-            <p className="text-muted mb-0.5">発売時価格</p>
-            <p className="font-semibold">
-              ¥{prev.releasePriceYen.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-background rounded-lg p-2.5">
-            <p className="text-muted mb-0.5">
-              {prev.yearsElapsed}年後の買取相場
-            </p>
-            <p className="font-semibold">
-              ¥{prev.currentBuybackPriceYen.toLocaleString()}
-            </p>
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div className="bg-background rounded-lg p-2.5">
+              <p className="text-muted mb-0.5">発売年</p>
+              <p className="font-semibold">{data.releaseYear}年</p>
+            </div>
+            <div className="bg-background rounded-lg p-2.5">
+              <p className="text-muted mb-0.5">販売価格</p>
+              <p className="font-semibold">¥{data.currentPriceYen.toLocaleString()}</p>
+            </div>
+            <div className="bg-background rounded-lg p-2.5">
+              <p className="text-muted mb-0.5">買取相場</p>
+              <p className="font-semibold">¥{data.currentBuybackPriceYen.toLocaleString()}</p>
+            </div>
           </div>
         </div>
 
-        <p className="text-xs text-muted mt-3 leading-relaxed">
-          {prev.modelName} は{prev.yearsElapsed}年間で実質
-          <span className="font-medium text-foreground">
-            ¥{prevActualCost.toLocaleString()}
-          </span>
-          （年間 ¥{prevAnnualCost.toLocaleString()}
-          ）で使えた計算になります。この買取実績をもとに{" "}
-          {data.productName} の実質コストを推定しています。
-        </p>
+        {/* カード2: 前世代モデルの実績 */}
+        <div className="bg-card-bg border border-border rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold">{prev.modelName}</span>
+            <span className="text-[10px] text-muted bg-background px-2 py-0.5 rounded-md">
+              前世代モデル
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent rounded-full transition-all duration-1000"
+                style={{ width: `${prev.retentionRate}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-medium text-accent">
+              {prev.retentionRate}%保持
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 text-xs">
+            <div className="bg-background rounded-lg p-2.5">
+              <p className="text-muted mb-0.5">発売時価格</p>
+              <p className="font-semibold">¥{prev.releasePriceYen.toLocaleString()}</p>
+            </div>
+            <div className="bg-background rounded-lg p-2.5">
+              <p className="text-muted mb-0.5">{prev.yearsElapsed}年後の買取</p>
+              <p className="font-semibold">¥{prev.currentBuybackPriceYen.toLocaleString()}</p>
+            </div>
+            <div className="bg-background rounded-lg p-2.5">
+              <p className="text-muted mb-0.5">実質コスト</p>
+              <p className="font-semibold">¥{prevActualCost.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
 
         {/* ソースリンク */}
-        <div className="mt-4 pt-3 border-t border-border">
-          <p className="text-[10px] text-muted mb-1.5">参考情報</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {data.citations.map((cite, i) => (
-              <a
-                key={i}
-                href={cite.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] text-muted hover:text-foreground transition underline underline-offset-2"
-              >
-                {cite.title}
-              </a>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
+          {data.citations.map((cite, i) => (
+            <a
+              key={i}
+              href={cite.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] text-muted hover:text-foreground transition underline underline-offset-2"
+            >
+              {cite.title}
+            </a>
+          ))}
         </div>
       </div>
 
