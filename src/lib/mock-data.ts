@@ -1,5 +1,6 @@
 import type {
   AnalysisResult,
+  AnalysisBaseData,
   FeedCardData,
   SuggestItem,
   FaqItem,
@@ -71,12 +72,46 @@ export const mockAnalysisResult: AnalysisResult = {
   ],
 };
 
+// === 年数非依存の基礎データ（v0.1 で API から返ってくる想定の構造） ===
+export const mockBaseData: AnalysisBaseData = {
+  productName: "Leica M11",
+  currentPriceYen: 1280000,
+  annualDepreciationRate: 0.0275, // 年間2.75%減価（M10の実績: 8年で20%減 → 年2.5%を少し上方修正）
+  previousModel: {
+    modelName: "Leica M10",
+    releaseYear: 2017,
+    releasePriceYen: 1000000,
+    currentBuybackPriceYen: 750000, // 買取価格（中古販売相場80万円からショップマージンを引いた額）
+    yearsElapsed: 8,
+    retentionRate: 75, // 買取ベースの価値保持率
+  },
+  citations: [
+    { title: "カメラのキタムラ 買取価格表", url: "https://www.kitamura.jp/service/sell/" },
+    { title: "マップカメラ 買取見積", url: "https://www.mapcamera.com/sell" },
+    { title: "フジヤカメラ 買取相場", url: "https://www.fujiya-camera.co.jp/" },
+  ],
+};
+
+// === クライアント側の計算関数 ===
+export function calcEstimate(
+  purchasePrice: number,
+  annualDepreciationRate: number,
+  years: number
+): { estimatedSalePrice: number; actualCost: number; annualCost: number } {
+  const estimatedSalePrice = Math.round(
+    purchasePrice * Math.pow(1 - annualDepreciationRate, years)
+  );
+  const actualCost = purchasePrice - estimatedSalePrice;
+  const annualCost = years > 0 ? Math.round(actualCost / years) : 0;
+  return { estimatedSalePrice, actualCost, annualCost };
+}
+
 // === ストリーミング中の分析ステップ（過程を見せる用） ===
 export const mockStreamSteps = [
   "前世代モデルの情報を検索しています...",
   "Leica M10 の発売時価格を取得 — 100万円（2017年）",
-  "現在の中古相場を調査しています...",
-  "Leica M10 の中古相場を取得 — 約80万円",
+  "買取相場を調査しています...",
+  "Leica M10 の買取相場を取得 — 約75万円",
   "価値保持率を計算しています...",
   "Leica M11 の実質コストを推定しています...",
 ];

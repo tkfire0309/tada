@@ -65,6 +65,23 @@ export interface FaqItem {
   category: "service" | "pricing" | "other";
 }
 
+// === API基礎データ（年数非依存） ===
+// APIから返ってくるのはこの形式。年数に応じた計算はクライアント側で行う。
+export interface AnalysisBaseData {
+  productName: string; // 検索対象商品名
+  currentPriceYen: number; // 現在の販売価格
+  annualDepreciationRate: number; // 年間減価率（0〜1）前モデル実績から算出
+  previousModel: {
+    modelName: string;
+    releaseYear: number;
+    releasePriceYen: number; // 発売時価格
+    currentBuybackPriceYen: number; // 現在の買取相場
+    yearsElapsed: number;
+    retentionRate: number; // 価値保持率（%）
+  };
+  citations: { title: string; url: string }[]; // 情報源（タイトル+URL）
+}
+
 // === 料金プラン ===
 export interface PricingPlan {
   name: string;

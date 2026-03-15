@@ -12,7 +12,7 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  function handleSearch(_productName: string, _yearsToSell: number) {
+  function handleSearch(_productName: string) {
     setIsSearching(true);
     setHasSearched(true);
   }

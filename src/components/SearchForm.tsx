@@ -4,13 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { suggestItems } from "@/lib/mock-data";
 
 interface SearchFormProps {
-  onSearch: (productName: string, yearsToSell: number) => void;
+  onSearch: (productName: string) => void;
   isLoading: boolean;
 }
 
 export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
   const [productName, setProductName] = useState("");
-  const [yearsToSell, setYearsToSell] = useState(5);
   const [showSuggest, setShowSuggest] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +34,7 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
     e.preventDefault();
     if (!productName.trim()) return;
     setShowSuggest(false);
-    onSearch(productName.trim(), yearsToSell);
+    onSearch(productName.trim());
   }
 
   return (
@@ -76,28 +75,6 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
               ))}
             </div>
           )}
-        </div>
-
-        {/* 売却年数 */}
-        <div>
-          <label className="block text-xs text-muted mb-1.5">
-            売却予定年数
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={yearsToSell}
-              onChange={(e) =>
-                setYearsToSell(
-                  Math.max(1, Math.min(20, Number(e.target.value)))
-                )
-              }
-              className="w-20 px-3 py-3 rounded-xl border border-border bg-background text-foreground text-center focus:outline-none focus:ring-2 focus:ring-accent/40 transition"
-            />
-            <span className="text-sm text-muted">年後に売却</span>
-          </div>
         </div>
 
         {/* 送信ボタン */}

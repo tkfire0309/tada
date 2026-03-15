@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
-  mockAnalysisResult,
+  mockBaseData,
   mockStreamSteps,
   relatedProducts,
+  calcEstimate,
 } from "@/lib/mock-data";
 
 interface ResultStreamProps {
@@ -20,6 +21,36 @@ export default function ResultStream({
   const [currentStep, setCurrentStep] = useState(0);
   const [visibleSteps, setVisibleSteps] = useState<string[]>([]);
 
+  // === 年数スライダー ===
+  const [years, setYears] = useState(5);
+
+  // === 価格編集 ===
+  const [isEditing, setIsEditing] = useState(false);
+  const [customPurchasePrice, setCustomPurchasePrice] = useState<number | null>(null);
+  const [customSalePrice, setCustomSalePrice] = useState<number | null>(null);
+
+  const data = mockBaseData;
+
+  // AI算出値
+  const aiEstimate = useMemo(
+    () => calcEstimate(data.currentPriceYen, data.annualDepreciationRate, years),
+    [data.currentPriceYen, data.annualDepreciationRate, years]
+  );
+
+  // 表示用の値（ユーザー編集 or AI算出）
+  const purchasePrice = customPurchasePrice ?? data.currentPriceYen;
+  const salePrice = customSalePrice ?? aiEstimate.estimatedSalePrice;
+  const actualCost = purchasePrice - salePrice;
+  const annualCost = years > 0 ? Math.round(actualCost / years) : 0;
+  const isCustomized = customPurchasePrice !== null || customSalePrice !== null;
+
+  function resetToAI() {
+    setCustomPurchasePrice(null);
+    setCustomSalePrice(null);
+    setIsEditing(false);
+  }
+
+  // 分析アニメーション
   useEffect(() => {
     if (!isActive || phase !== "idle") return;
 
@@ -48,23 +79,21 @@ export default function ResultStream({
 
   if (phase === "idle") return null;
 
-  const result = mockAnalysisResult;
-  const { futureSuggestion, previousModel } = result;
+  const prev = data.previousModel;
+  const prevActualCost = prev.releasePriceYen - prev.currentBuybackPriceYen;
+  const prevAnnualCost = Math.round(prevActualCost / prev.yearsElapsed);
 
   // === 分析中の表示 ===
   if (phase === "analyzing") {
     return (
       <div className="w-full max-w-lg mx-auto mt-6">
         <div className="bg-card-bg border border-border rounded-2xl p-6 shadow-sm">
-          {/* プログレス */}
           <div className="flex items-center gap-3 mb-5">
             <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             <span className="text-sm text-muted">
               分析中... ({currentStep}/{mockStreamSteps.length})
             </span>
           </div>
-
-          {/* ステップログ */}
           <div className="space-y-2">
             {visibleSteps.map((step, i) => (
               <div
@@ -81,74 +110,129 @@ export default function ResultStream({
     );
   }
 
-  // === 分析完了：結論ファーストの表示 ===
+  // === 分析完了：結論ファースト ===
   return (
     <div className="w-full max-w-lg mx-auto mt-6 space-y-4">
-      {/* メインカード：結論ドカン */}
-      <div className="bg-card-bg border border-border rounded-2xl p-8 shadow-sm text-center">
-        <p className="text-xs text-muted mb-1">
-          {futureSuggestion.yearsToSell}年後に売却した場合
-        </p>
-        <h2 className="text-xl font-bold mb-4">
-          {futureSuggestion.currentModelName}
+      {/* メインカード */}
+      <div className="bg-card-bg border border-border rounded-2xl p-8 shadow-sm">
+        {/* ヘッダー: 商品名 + 編集ボタン */}
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs text-muted">
+            {years}年後に売却した場合
+          </p>
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className="text-[10px] text-muted hover:text-foreground transition px-2 py-1 rounded-lg hover:bg-background"
+          >
+            {isEditing ? "完了" : "価格を編集"}
+          </button>
+        </div>
+        <h2 className="text-xl font-bold mb-4 text-center">
+          {data.productName}
         </h2>
 
         {/* メイン数字 */}
-        <div className="mb-6">
+        <div className="mb-5 text-center">
           <p className="text-xs text-muted mb-1">実質コスト</p>
           <p className="text-4xl font-bold text-accent tracking-tight">
-            ¥{futureSuggestion.estimatedActualCostYen.toLocaleString()}
+            ¥{actualCost.toLocaleString()}
           </p>
+          {isCustomized && (
+            <button
+              onClick={resetToAI}
+              className="mt-2 text-[10px] text-muted hover:text-foreground transition underline underline-offset-2"
+            >
+              AIの算出結果に戻す
+            </button>
+          )}
         </div>
 
-        {/* サマリー3列 */}
+        {/* サマリー3列 — 編集モード対応 */}
         <div className="grid grid-cols-3 gap-3 pt-4 border-t border-border">
-          <div>
+          <div className="text-center">
             <p className="text-[10px] text-muted mb-0.5">購入価格</p>
-            <p className="text-sm font-semibold">
-              ¥{futureSuggestion.currentPriceYen.toLocaleString()}
-            </p>
+            {isEditing ? (
+              <input
+                type="number"
+                value={purchasePrice}
+                onChange={(e) => setCustomPurchasePrice(Number(e.target.value))}
+                className="w-full text-sm font-semibold text-center bg-background border border-border rounded-lg px-1 py-1 focus:outline-none focus:ring-1 focus:ring-accent/40"
+              />
+            ) : (
+              <p className="text-sm font-semibold">
+                ¥{purchasePrice.toLocaleString()}
+              </p>
+            )}
           </div>
-          <div>
+          <div className="text-center">
             <p className="text-[10px] text-muted mb-0.5">推定売却価格</p>
-            <p className="text-sm font-semibold">
-              ¥{futureSuggestion.estimatedUsedPriceYen.toLocaleString()}
-            </p>
+            {isEditing ? (
+              <input
+                type="number"
+                value={salePrice}
+                onChange={(e) => setCustomSalePrice(Number(e.target.value))}
+                className="w-full text-sm font-semibold text-center bg-background border border-border rounded-lg px-1 py-1 focus:outline-none focus:ring-1 focus:ring-accent/40"
+              />
+            ) : (
+              <p className="text-sm font-semibold">
+                ¥{salePrice.toLocaleString()}
+              </p>
+            )}
           </div>
-          <div>
+          <div className="text-center">
             <p className="text-[10px] text-muted mb-0.5">年間コスト</p>
             <p className="text-sm font-semibold text-accent">
-              ¥{futureSuggestion.estimatedAnnualCostYen.toLocaleString()}
+              ¥{annualCost.toLocaleString()}
               <span className="text-[10px] text-muted font-normal">/年</span>
             </p>
           </div>
         </div>
+
+        {/* 年数スライダー */}
+        <div className="mt-5 pt-4 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] text-muted">売却予定年数</p>
+            <p className="text-sm font-semibold">{years}年</p>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={20}
+            value={years}
+            onChange={(e) => {
+              setYears(Number(e.target.value));
+              // 年数変更時はカスタム売却価格をリセット（購入価格は保持）
+              setCustomSalePrice(null);
+            }}
+            className="w-full h-1.5 bg-border rounded-full appearance-none cursor-pointer accent-accent"
+          />
+          <div className="flex justify-between text-[10px] text-muted mt-1">
+            <span>1年</span>
+            <span>10年</span>
+            <span>20年</span>
+          </div>
+        </div>
       </div>
 
-      {/* 根拠カード：前モデルの事実 */}
+      {/* 根拠カード */}
       <div className="bg-card-bg border border-border rounded-2xl p-5 shadow-sm">
         <p className="text-xs font-medium text-muted mb-3">
-          根拠：前世代モデルの実績
+          根拠：前世代モデルの買取実績
         </p>
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold">
-            {previousModel.modelName}
-          </span>
-          <span className="text-xs text-muted">
-            {previousModel.releaseYear}年発売
-          </span>
+          <span className="text-sm font-semibold">{prev.modelName}</span>
+          <span className="text-xs text-muted">{prev.releaseYear}年発売</span>
         </div>
 
         <div className="flex items-center gap-2 mb-3">
-          {/* ビジュアルバー */}
           <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
             <div
               className="h-full bg-accent rounded-full transition-all duration-1000"
-              style={{ width: `${previousModel.retentionRate}%` }}
+              style={{ width: `${prev.retentionRate}%` }}
             />
           </div>
           <span className="text-xs font-medium text-accent">
-            {previousModel.retentionRate}%保持
+            {prev.retentionRate}%保持
           </span>
         </div>
 
@@ -156,29 +240,46 @@ export default function ResultStream({
           <div className="bg-background rounded-lg p-2.5">
             <p className="text-muted mb-0.5">発売時価格</p>
             <p className="font-semibold">
-              ¥{previousModel.releasePriceYen.toLocaleString()}
+              ¥{prev.releasePriceYen.toLocaleString()}
             </p>
           </div>
           <div className="bg-background rounded-lg p-2.5">
             <p className="text-muted mb-0.5">
-              {previousModel.yearsElapsed}年後の中古相場
+              {prev.yearsElapsed}年後の買取相場
             </p>
             <p className="font-semibold">
-              ¥{previousModel.currentUsedPriceYen.toLocaleString()}
+              ¥{prev.currentBuybackPriceYen.toLocaleString()}
             </p>
           </div>
         </div>
 
         <p className="text-xs text-muted mt-3 leading-relaxed">
-          {previousModel.modelName} は{previousModel.yearsElapsed}
-          年間で実質
+          {prev.modelName} は{prev.yearsElapsed}年間で実質
           <span className="font-medium text-foreground">
-            ¥{previousModel.actualCostYen.toLocaleString()}
+            ¥{prevActualCost.toLocaleString()}
           </span>
-          （年間 ¥{previousModel.annualCostYen.toLocaleString()}
-          ）で使えた計算になります。この傾向をもとに{" "}
-          {futureSuggestion.currentModelName} の実質コストを推定しています。
+          （年間 ¥{prevAnnualCost.toLocaleString()}
+          ）で使えた計算になります。この買取実績をもとに{" "}
+          {data.productName} の実質コストを推定しています。
         </p>
+
+        {/* ソースリンク */}
+        <div className="mt-4 pt-3 border-t border-border">
+          <p className="text-[10px] text-muted mb-1.5">参考情報</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {data.citations.map((cite, i) => (
+              <a
+                key={i}
+                href={cite.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-muted hover:text-foreground transition underline underline-offset-2"
+              >
+                {cite.title}
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* 関連商品カード */}
