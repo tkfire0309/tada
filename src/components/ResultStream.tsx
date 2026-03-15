@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { mockStreamTexts } from "@/lib/mock-data";
+import {
+  mockAnalysisResult,
+  mockStreamSteps,
+  relatedProducts,
+} from "@/lib/mock-data";
 
 interface ResultStreamProps {
   isActive: boolean;
@@ -12,155 +16,198 @@ export default function ResultStream({
   isActive,
   onComplete,
 }: ResultStreamProps) {
-  const [displayedText, setDisplayedText] = useState("");
-  const [phase, setPhase] = useState<"idle" | "fact" | "suggestion" | "trend" | "done">("idle");
+  const [phase, setPhase] = useState<"idle" | "analyzing" | "done">("idle");
+  const [currentStep, setCurrentStep] = useState(0);
+  const [visibleSteps, setVisibleSteps] = useState<string[]>([]);
 
-  const streamText = useCallback(
-    (text: string): Promise<void> => {
-      return new Promise((resolve) => {
-        let i = 0;
-        const interval = setInterval(() => {
-          if (i < text.length) {
-            setDisplayedText((prev) => prev + text[i]);
-            i++;
-          } else {
-            clearInterval(interval);
-            resolve();
-          }
-        }, 15);
-      });
-    },
-    []
-  );
+  const runAnalysis = useCallback(() => {
+    setPhase("analyzing");
+    setCurrentStep(0);
+    setVisibleSteps([]);
+
+    let step = 0;
+    const interval = setInterval(() => {
+      if (step < mockStreamSteps.length) {
+        setVisibleSteps((prev) => [...prev, mockStreamSteps[step]]);
+        setCurrentStep(step + 1);
+        step++;
+      } else {
+        clearInterval(interval);
+        // 少し間を置いて結論表示に切り替え
+        setTimeout(() => {
+          setPhase("done");
+          onComplete();
+        }, 600);
+      }
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, [onComplete]);
 
   useEffect(() => {
-    if (!isActive) return;
-
-    let cancelled = false;
-
-    async function run() {
-      setDisplayedText("");
-      setPhase("fact");
-      await streamText(mockStreamTexts.fact);
-      if (cancelled) return;
-
-      setDisplayedText((prev) => prev + "\n\n");
-      setPhase("suggestion");
-      await streamText(mockStreamTexts.suggestion);
-      if (cancelled) return;
-
-      setDisplayedText((prev) => prev + "\n\n");
-      setPhase("trend");
-      await streamText(mockStreamTexts.trend);
-      if (cancelled) return;
-
-      setPhase("done");
-      onComplete();
-    }
-
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [isActive, streamText, onComplete]);
+    if (!isActive || phase !== "idle") return;
+    const cleanup = runAnalysis();
+    return cleanup;
+  }, [isActive, phase, runAnalysis]);
 
   if (phase === "idle") return null;
 
-  return (
-    <div className="w-full max-w-lg mx-auto mt-6">
-      <div className="bg-card-bg border border-border rounded-2xl p-6 shadow-sm">
-        {/* プログレスインジケーター */}
-        <div className="flex items-center gap-2 mb-4">
-          <div className="flex gap-1">
-            <div
-              className={`w-2 h-2 rounded-full transition ${
-                phase === "fact"
-                  ? "bg-accent animate-pulse"
-                  : "bg-accent"
-              }`}
-            />
-            <div
-              className={`w-2 h-2 rounded-full transition ${
-                phase === "suggestion"
-                  ? "bg-accent animate-pulse"
-                  : phase === "trend" || phase === "done"
-                  ? "bg-accent"
-                  : "bg-border"
-              }`}
-            />
-            <div
-              className={`w-2 h-2 rounded-full transition ${
-                phase === "trend"
-                  ? "bg-accent animate-pulse"
-                  : phase === "done"
-                  ? "bg-accent"
-                  : "bg-border"
-              }`}
-            />
+  const result = mockAnalysisResult;
+  const { futureSuggestion, previousModel } = result;
+
+  // === 分析中の表示 ===
+  if (phase === "analyzing") {
+    return (
+      <div className="w-full max-w-lg mx-auto mt-6">
+        <div className="bg-card-bg border border-border rounded-2xl p-6 shadow-sm">
+          {/* プログレス */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-muted">
+              分析中... ({currentStep}/{mockStreamSteps.length})
+            </span>
           </div>
+
+          {/* ステップログ */}
+          <div className="space-y-2">
+            {visibleSteps.map((step, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 animate-[fadeIn_0.3s_ease-out]"
+              >
+                <span className="text-accent mt-0.5 text-xs">&#10003;</span>
+                <span className="text-xs text-muted">{step}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // === 分析完了：結論ファーストの表示 ===
+  return (
+    <div className="w-full max-w-lg mx-auto mt-6 space-y-4">
+      {/* メインカード：結論ドカン */}
+      <div className="bg-card-bg border border-border rounded-2xl p-8 shadow-sm text-center">
+        <p className="text-xs text-muted mb-1">
+          {futureSuggestion.yearsToSell}年後に売却した場合
+        </p>
+        <h2 className="text-xl font-bold mb-4">
+          {futureSuggestion.currentModelName}
+        </h2>
+
+        {/* メイン数字 */}
+        <div className="mb-6">
+          <p className="text-xs text-muted mb-1">実質コスト</p>
+          <p className="text-4xl font-bold text-accent tracking-tight">
+            ¥{futureSuggestion.estimatedActualCostYen.toLocaleString()}
+          </p>
+        </div>
+
+        {/* サマリー3列 */}
+        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-border">
+          <div>
+            <p className="text-[10px] text-muted mb-0.5">購入価格</p>
+            <p className="text-sm font-semibold">
+              ¥{futureSuggestion.currentPriceYen.toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted mb-0.5">推定売却価格</p>
+            <p className="text-sm font-semibold">
+              ¥{futureSuggestion.estimatedUsedPriceYen.toLocaleString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted mb-0.5">年間コスト</p>
+            <p className="text-sm font-semibold text-accent">
+              ¥{futureSuggestion.estimatedAnnualCostYen.toLocaleString()}
+              <span className="text-[10px] text-muted font-normal">/年</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 根拠カード：前モデルの事実 */}
+      <div className="bg-card-bg border border-border rounded-2xl p-5 shadow-sm">
+        <p className="text-xs font-medium text-muted mb-3">
+          根拠：前世代モデルの実績
+        </p>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold">
+            {previousModel.modelName}
+          </span>
           <span className="text-xs text-muted">
-            {phase === "fact" && "過去の事実を分析中..."}
-            {phase === "suggestion" && "未来の示唆を生成中..."}
-            {phase === "trend" && "ブランド傾向を比較中..."}
-            {phase === "done" && "分析完了"}
+            {previousModel.releaseYear}年発売
           </span>
         </div>
 
-        {/* テキスト表示 */}
-        <div className="prose prose-sm max-w-none text-foreground">
-          {displayedText.split("\n").map((line, i) => {
-            if (line.startsWith("## ")) {
-              return (
-                <h2
-                  key={i}
-                  className="text-lg font-bold mt-4 mb-2 first:mt-0"
-                >
-                  {line.replace("## ", "")}
-                </h2>
-              );
-            }
-            if (line.startsWith("| ")) {
-              return (
-                <div key={i} className="text-xs font-mono text-muted">
-                  {line}
-                </div>
-              );
-            }
-            if (line.startsWith("- ")) {
-              return (
-                <div key={i} className="ml-2 text-sm">
-                  {renderBold(line)}
-                </div>
-              );
-            }
-            if (line.trim() === "") {
-              return <div key={i} className="h-2" />;
-            }
-            return (
-              <p key={i} className="text-sm leading-relaxed">
-                {renderBold(line)}
+        <div className="flex items-center gap-2 mb-3">
+          {/* ビジュアルバー */}
+          <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
+            <div
+              className="h-full bg-accent rounded-full transition-all duration-1000"
+              style={{ width: `${previousModel.retentionRate}%` }}
+            />
+          </div>
+          <span className="text-xs font-medium text-accent">
+            {previousModel.retentionRate}%保持
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="bg-background rounded-lg p-2.5">
+            <p className="text-muted mb-0.5">発売時価格</p>
+            <p className="font-semibold">
+              ¥{previousModel.releasePriceYen.toLocaleString()}
+            </p>
+          </div>
+          <div className="bg-background rounded-lg p-2.5">
+            <p className="text-muted mb-0.5">
+              {previousModel.yearsElapsed}年後の中古相場
+            </p>
+            <p className="font-semibold">
+              ¥{previousModel.currentUsedPriceYen.toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted mt-3 leading-relaxed">
+          {previousModel.modelName} は{previousModel.yearsElapsed}
+          年間で実質
+          <span className="font-medium text-foreground">
+            ¥{previousModel.actualCostYen.toLocaleString()}
+          </span>
+          （年間 ¥{previousModel.annualCostYen.toLocaleString()}
+          ）で使えた計算になります。この傾向をもとに{" "}
+          {futureSuggestion.currentModelName} の実質コストを推定しています。
+        </p>
+      </div>
+
+      {/* 関連商品カード */}
+      <div>
+        <p className="text-xs font-medium text-muted mb-2 px-1">
+          同カテゴリの実質コスト
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {relatedProducts.map((p) => (
+            <div
+              key={p.productName}
+              className="bg-card-bg border border-border rounded-xl p-3 text-center hover:shadow-sm transition"
+            >
+              <p className="text-xs font-medium truncate">{p.productName}</p>
+              <p className="text-sm font-bold text-accent mt-1">
+                ¥{p.annualCostYen.toLocaleString()}
+                <span className="text-[10px] text-muted font-normal">
+                  /年
+                </span>
               </p>
-            );
-          })}
-          {phase !== "done" && (
-            <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5" />
-          )}
+              <p className="text-[10px] text-muted mt-0.5">{p.category}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
-}
-
-function renderBold(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return (
-        <strong key={i} className="font-semibold text-accent">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
 }
