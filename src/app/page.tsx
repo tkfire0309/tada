@@ -7,18 +7,46 @@ import FeedCarousel from "@/components/FeedCarousel";
 import FaqAccordion from "@/components/FaqAccordion";
 import Link from "next/link";
 import { faqItems } from "@/lib/mock-data";
+import type { AnalysisBaseData } from "@/lib/types";
 
 export default function Home() {
   const [isSearching, setIsSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [analysisData, setAnalysisData] = useState<AnalysisBaseData | null>(
+    null
+  );
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSearch(_productName: string) {
+  async function handleSearch(productName: string) {
     setIsSearching(true);
-    setHasSearched(true);
+    setError(null);
+    setAnalysisData(null);
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productName }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `API error: ${res.status}`);
+      }
+
+      const data: AnalysisBaseData = await res.json();
+      setAnalysisData(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "分析中にエラーが発生しました"
+      );
+    } finally {
+      setIsSearching(false);
+    }
   }
 
-  const handleComplete = useCallback(() => {
-    setIsSearching(false);
+  const handleReset = useCallback(() => {
+    setAnalysisData(null);
+    setError(null);
   }, []);
 
   const topFaq = faqItems.slice(0, 3);
@@ -44,7 +72,42 @@ export default function Home() {
           <SearchForm onSearch={handleSearch} isLoading={isSearching} />
         </div>
 
-        <ResultStream isActive={hasSearched} onComplete={handleComplete} />
+        {/* エラー表示 */}
+        {error && (
+          <div className="w-full max-w-lg mx-auto mt-6">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 text-center">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <button
+                onClick={handleReset}
+                className="mt-3 text-xs text-muted hover:text-foreground transition underline underline-offset-2"
+              >
+                もう一度試す
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 分析中のローディング */}
+        {isSearching && (
+          <div className="w-full max-w-lg mx-auto mt-6">
+            <div className="bg-card-bg border border-border rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-muted">
+                  買取価格データを調査中...
+                </span>
+              </div>
+              <p className="text-xs text-muted mt-3">
+                マップカメラ・キタムラ等の買取価格を検索しています。10〜20秒ほどかかります。
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 結果表示 */}
+        {analysisData && !isSearching && (
+          <ResultStream data={analysisData} />
+        )}
       </section>
 
       {/* フィードカルーセル */}

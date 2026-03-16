@@ -53,7 +53,7 @@ export default function SearchForm({ onSearch, isLoading }: SearchFormProps) {
             onFocus={() => {
               if (productName.length > 0) setShowSuggest(true);
             }}
-            placeholder="iPhone 16 Pro, Leica M11, トヨタ GR86..."
+            placeholder="カメラ名を入力（例: Leica M11, Sony α7 IV）"
             className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-accent/40 transition"
           />
           {/* サジェスト */}
